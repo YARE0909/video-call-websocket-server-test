@@ -1,7 +1,7 @@
 import express from "express";
 import { Server } from "socket.io";
 import { createServer } from "http";
-import { userRoutes } from "./api/routes/userRoutes";
+import { userRoutes } from "./api/routes/healthcheck";
 import { dbConnect } from "./config/dbConfig";
 import { port } from "./config/serverConfig";
 import { callHandler } from "./websocket/handlers/callHandler";
@@ -13,7 +13,7 @@ const io = new Server(server);
 
 // Middleware
 app.use(express.json());
-app.use("/api", userRoutes);
+app.use("/healthcheck", userRoutes);
 
 // Database Connection
 dbConnect()
