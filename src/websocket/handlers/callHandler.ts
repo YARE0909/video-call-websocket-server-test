@@ -39,6 +39,7 @@ export const callHandler = (socket: Socket, io: Server) => {
       roomId,
       from: userId,
       status: "pending",
+      to: null,
     };
     calls.push(newCall);
     await saveAllCalls(calls);
@@ -47,41 +48,28 @@ export const callHandler = (socket: Socket, io: Server) => {
     callListUpdate();
   });
 
-  socket.on("accept-call", async (data: string) => {
+  socket.on("join-call", async (data: string) => {
     const parsedData = JSON.parse(data);
     const { roomId } = parsedData;
 
     const calls = await getAllCalls();
     const call = calls.find((call) => call.roomId === roomId);
 
-    if (call?.status === "pending") {
-      call.status = "inProgress";
-      await saveAllCalls(calls);
-
-      socket.to(roomId).emit("call-accepted", call);
-      callListUpdate();
-    } else {
-      socket.emit("call-not-pending", call);
+    if (!call) {
+      return socket.emit("call-not-found", roomId);
     }
-  });
 
-  socket.on("end-call", async (data: string) => {
-    const parsedData = JSON.parse(data);
-    const { roomId } = parsedData;
-
-    let calls = await getAllCalls();
-    const call = calls.find((call) => call.roomId === roomId);
-
-    if (call) {
-      calls = calls.filter((call) => call.roomId !== roomId);
-      await saveAllCalls(calls);
-
-      socket.to(roomId).emit("call-ended", call);
-      socket.leave(roomId);
-      callListUpdate();
-    } else {
-      socket.emit("call-not-found", roomId);
+    if (call.status !== "pending") {
+      return socket.emit("call-not-pending", call);
     }
+
+    call.status = "inProgress";
+    call.to = userId;
+    await saveAllCalls(calls);
+
+    socket.join(roomId);
+    io.to(roomId).emit("call-joined", call);
+    callListUpdate();
   });
 
   socket.on("hold-call", async (data: string) => {
@@ -93,9 +81,10 @@ export const callHandler = (socket: Socket, io: Server) => {
 
     if (call?.status === "inProgress") {
       call.status = "onHold";
+
       await saveAllCalls(calls);
 
-      socket.to(roomId).emit("call-on-hold", call);
+      io.to(roomId).emit("call-on-hold", call);
       callListUpdate();
     } else {
       socket.emit("call-not-in-progress", call);
@@ -111,18 +100,44 @@ export const callHandler = (socket: Socket, io: Server) => {
 
     if (call?.status === "onHold") {
       call.status = "inProgress";
+      call.to = userId;
+      
       await saveAllCalls(calls);
 
-      socket.to(roomId).emit("call-resumed", call);
+      io.to(roomId).emit("call-resumed", call);
       callListUpdate();
     } else {
       socket.emit("call-not-on-hold", call);
     }
   });
 
+  socket.on("end-call", async (data: string) => {
+    const parsedData = JSON.parse(data);
+    const { roomId } = parsedData;
+
+    let calls = await getAllCalls();
+    const call = calls.find((call) => call.roomId === roomId);
+
+    if (call) {
+      calls = calls.filter((call) => call.roomId !== roomId);
+      await saveAllCalls(calls);
+
+      io.to(roomId).emit("call-ended", call);
+      socket.leave(roomId);
+      callListUpdate();
+    } else {
+      socket.emit("call-not-found", roomId);
+    }
+  });
+
   socket.on("get-call-list", async () => {
     const calls = await getAllCalls();
     socket.emit("call-list-update", calls);
+  });
+
+  socket.on("peer-signal", (data) => {
+    const { roomId, signal } = JSON.parse(data);
+    io.to(roomId).emit("peer-signal", { userId, signal });
   });
 
   socket.on("disconnect", () => {
