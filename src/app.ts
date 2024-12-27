@@ -11,7 +11,14 @@ import cors from "cors";
 
 const app = express();
 const server = createServer(app);
-const io: Server = new Server(server);
+const io: Server = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+    allowedHeaders: ["my-custom-header"],
+    credentials: true,
+  },
+});
 
 // Middleware
 app.use(express.json());

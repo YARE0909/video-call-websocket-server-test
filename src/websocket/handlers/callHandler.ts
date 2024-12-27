@@ -25,6 +25,7 @@ export const callHandler = (socket: Socket, io: Server) => {
   };
 
   socket.on("initiate-call", async (data: string) => {
+    console.log(data);
     const parsedData = JSON.parse(data);
     const { roomId } = parsedData;
 
@@ -44,7 +45,8 @@ export const callHandler = (socket: Socket, io: Server) => {
     calls.push(newCall);
     await saveAllCalls(calls);
 
-    socket.join(roomId);
+    // Console log room members
+    console.log(roomId, io.sockets.adapter.rooms.get(roomId));
     callListUpdate();
   });
 
@@ -65,10 +67,11 @@ export const callHandler = (socket: Socket, io: Server) => {
 
     call.status = "inProgress";
     call.to = userId;
+
     await saveAllCalls(calls);
 
-    socket.join(roomId);
-    io.to(roomId).emit("call-joined", call);
+    console.log(roomId, io.sockets.adapter.rooms.get(roomId));
+    io.emit("call-joined", call);
     callListUpdate();
   });
 
@@ -84,7 +87,7 @@ export const callHandler = (socket: Socket, io: Server) => {
 
       await saveAllCalls(calls);
 
-      io.to(roomId).emit("call-on-hold", call);
+      io.emit("call-on-hold", call);
       callListUpdate();
     } else {
       socket.emit("call-not-in-progress", call);
@@ -101,10 +104,10 @@ export const callHandler = (socket: Socket, io: Server) => {
     if (call?.status === "onHold") {
       call.status = "inProgress";
       call.to = userId;
-      
+
       await saveAllCalls(calls);
 
-      io.to(roomId).emit("call-resumed", call);
+      io.emit("call-resumed", call);
       callListUpdate();
     } else {
       socket.emit("call-not-on-hold", call);
@@ -122,8 +125,7 @@ export const callHandler = (socket: Socket, io: Server) => {
       calls = calls.filter((call) => call.roomId !== roomId);
       await saveAllCalls(calls);
 
-      io.to(roomId).emit("call-ended", call);
-      socket.leave(roomId);
+      io.emit("call-ended", call);
       callListUpdate();
     } else {
       socket.emit("call-not-found", roomId);
