@@ -1,13 +1,13 @@
-import { createClient } from "redis";
+import Redis from "ioredis";
 
-export const redisClient = createClient({
-  url: process.env.CACHE_DB_URL,
+const redis = new Redis();
+
+redis.on("connect", () => {
+  console.log("Connected to Redis successfully.");
 });
 
-redisClient.on("connect", () => {
-  console.log("Connected to Redis");
+redis.on("error", (err) => {
+  console.error("Redis connection error:", err);
 });
 
-redisClient.on("error", (err) => {
-  console.error("Redis error:", err);
-});
+export default redis;
